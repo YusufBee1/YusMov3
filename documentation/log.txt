@@ -1,0 +1,6 @@
+javascript
+const logStream = fs.createWriteStream('log.txt', {flags: 'a'});
+server.on('request', (req) => {
+logStream.write(`${new Date().toISOString()} - ${req.url}\n`);
+});
+```
