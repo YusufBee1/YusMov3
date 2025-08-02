@@ -5,53 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Yusuf's Movie API (YusMov) - Documentation</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 2rem;
-      line-height: 1.6;
-      background-color: #fafafa;
-      color: #333;
-    }
-    h1, h2 {
-      color: #222;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 1rem;
-      margin-bottom: 2rem;
-    }
-    table, th, td {
-      border: 1px solid #ccc;
-    }
-    th, td {
-      padding: 10px;
-      text-align: left;
-      vertical-align: top;
-    }
-    code {
-      background: #eee;
-      padding: 2px 5px;
-      border-radius: 4px;
-      font-family: monospace;
-    }
-    pre {
-      background: #f4f4f4;
-      padding: 10px;
-      border-radius: 5px;
-      overflow-x: auto;
-    }
+    body { font-family: Arial, sans-serif; margin: 2rem; line-height: 1.6; background-color: #fafafa; color: #333; }
+    h1, h2 { color: #222; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+    table, th, td { border: 1px solid #ccc; }
+    th, td { padding: 10px; text-align: left; vertical-align: top; }
+    code { background: #eee; padding: 2px 5px; border-radius: 4px; font-family: monospace; }
+    pre { background: #f4f4f4; padding: 10px; border-radius: 5px; overflow-x: auto; white-space: pre-wrap; }
   </style>
 </head>
 <body>
   <h1>Yusuf's Movie API (YusMov)</h1>
-  <p>
-    <strong>About:</strong>  
-    This REST API provides movie information, user management, and the ability for users to save favorite movies.
-  </p>
+  <p><strong>About:</strong> This REST API uses Mongoose to interact with MongoDB, providing movie data, user management, and favorites functionality.</p>
 
   <h2>API Endpoints</h2>
-
   <table>
     <thead>
       <tr>
@@ -66,19 +33,37 @@
     <tbody>
       <tr>
         <td>GET</td>
+        <td><code>/</code></td>
+        <td>Returns a welcome message.</td>
+        <td>None</td>
+        <td>None</td>
+        <td>Plain text: <code>"Welcome to YusMov API! Visit /movies or /documentation.html to get started."</code></td>
+      </tr>
+
+      <tr>
+        <td>GET</td>
         <td><code>/movies</code></td>
         <td>Returns a list of all movies.</td>
         <td>None</td>
         <td>None</td>
         <td>
-          JSON array of movie objects, e.g.:<br />
+          JSON array of movie objects, e.g.:
           <pre>[
   {
+    "_id": "60f...",
     "title": "Inception",
-    "director": "Christopher Nolan",
-    "year": 2010
+    "description": "A mind-bending thriller about dreams within dreams.",
+    "genre": { "name": "Thriller", "description": "Suspenseful and exciting films" },
+    "director": { "name": "Christopher Nolan", "bio": "British-American filmmaker...", "birthYear": 1970, "deathYear": null },
+    "imageUrl": "https://.../inception.jpg",
+    "featured": true,
+    "runtimeMinutes": 148,
+    "rating": "PG-13",
+    "cast": ["Leonardo DiCaprio", "Joseph Gordon-Levitt"],
+    "createdAt": "2025-08-01T...Z",
+    "updatedAt": "2025-08-01T...Z"
   },
-  ...
+  {...}
 ]</pre>
         </td>
       </tr>
@@ -90,14 +75,20 @@
         <td>URL param: <code>title</code> (string)</td>
         <td>None</td>
         <td>
-          JSON object of movie details, e.g.:<br />
+          JSON object of a movie, e.g.:
           <pre>{
+  "_id": "60f...",
   "title": "Inception",
-  "description": "...",
-  "genre": "Sci-Fi",
-  "director": "Christopher Nolan",
-  "imageURL": "http://...",
-  "featured": true
+  "description": "A mind-bending thriller...",
+  "genre": { "name": "Thriller", "description": "..." },
+  "director": { "name": "Christopher Nolan", "bio": "...", "birthYear": 1970, "deathYear": null },
+  "imageUrl": "https://.../inception.jpg",
+  "featured": true,
+  "runtimeMinutes": 148,
+  "rating": "PG-13",
+  "cast": ["Leonardo DiCaprio", "Elliot Page"],
+  "createdAt": "2025-08-01T...Z",
+  "updatedAt": "2025-08-01T...Z"
 }</pre>
         </td>
       </tr>
@@ -105,14 +96,14 @@
       <tr>
         <td>GET</td>
         <td><code>/genres/:name</code></td>
-        <td>Returns data (description) about a genre by name.</td>
+        <td>Returns data about a genre by name.</td>
         <td>URL param: <code>name</code> (string)</td>
         <td>None</td>
         <td>
-          JSON object with genre info, e.g.:<br />
+          JSON object, e.g.:
           <pre>{
   "name": "Thriller",
-  "description": "Thrillers are suspenseful and exciting..."
+  "description": "Suspenseful and exciting films"
 }</pre>
         </td>
       </tr>
@@ -120,14 +111,14 @@
       <tr>
         <td>GET</td>
         <td><code>/directors/:name</code></td>
-        <td>Returns data about a director by name (bio, birth year, death year).</td>
+        <td>Returns data about a director by name.</td>
         <td>URL param: <code>name</code> (string)</td>
         <td>None</td>
         <td>
-          JSON object with director info, e.g.:<br />
+          JSON object, e.g.:
           <pre>{
   "name": "Christopher Nolan",
-  "bio": "British-American filmmaker...",
+  "bio": "British-American filmmaker known for complex storytelling.",
   "birthYear": 1970,
   "deathYear": null
 }</pre>
@@ -140,57 +131,77 @@
         <td>Registers a new user.</td>
         <td>None</td>
         <td>
-          JSON object with user info:<br />
+          JSON object:
           <pre>{
   "username": "johndoe",
   "email": "john@example.com",
-  "password": "password123"
+  "password": "password123",
+  "birthday": "1990-05-12"
 }</pre>
         </td>
         <td>
-          Confirmation message or created user object.<br />
-          Example: <code>{ "message": "User johndoe registered successfully." }</code>
+          JSON object of created user, e.g.:
+          <pre>{
+  "_id": "60f...",
+  "username": "johndoe",
+  "email": "john@example.com",
+  "birthday": "1990-05-12T00:00:00.000Z",
+  "favorites": [],
+  "createdAt": "2025-08-01T...Z",
+  "updatedAt": "2025-08-01T...Z"
+}</pre>
         </td>
       </tr>
 
       <tr>
         <td>PUT</td>
         <td><code>/users/:username</code></td>
-        <td>Updates an existing user’s username.</td>
+        <td>Updates a user's username, email, password, or birthday.</td>
         <td>URL param: <code>username</code> (string)</td>
         <td>
-          JSON object:<br />
+          JSON object (any fields):
           <pre>{
-  "username": "newUsername"
+  "newUsername": "alice2",
+  "newEmail": "alice2@example.com",
+  "newPassword": "newPass123",
+  "newBirthday": "1991-06-15"
 }</pre>
         </td>
         <td>
-          Confirmation message.<br />
-          Example: <code>{ "message": "Username updated to newUsername." }</code>
+          JSON object of updated user, e.g.:
+          <pre>{
+  "_id": "60f...",
+  "username": "alice2",
+  "email": "alice2@example.com",
+  "birthday": "1991-06-15T00:00:00.000Z",
+  "favorites": [...],
+  "createdAt": "2025-08-01T...Z",
+  "updatedAt": "2025-08-02T...Z"
+}</pre>
         </td>
       </tr>
 
       <tr>
         <td>POST</td>
         <td><code>/users/:username/movies/:movieId</code></td>
-        <td>Adds a movie to a user’s list of favorites.</td>
+        <td>Adds a movie to a user's list of favorites.</td>
         <td>URL params: <code>username</code>, <code>movieId</code></td>
         <td>None</td>
         <td>
-          Confirmation message.<br />
-          Example: <code>{ "message": "Movie 123 added to johndoe's favorites." }</code>
+          Plain text:
+          <code>"Movie &lt;movieId&gt; added to &lt;username&gt;'s favorites"</code>
         </td>
       </tr>
 
       <tr>
         <td>DELETE</td>
         <td><code>/users/:username/movies/:movieId</code></td>
-        <td>Removes a movie from a user’s list of favorites.</td>
+        <td>Removes a movie from a user's list of favorites.</td>
         <td>URL params: <code>username</code>, <code>movieId</code></td>
         <td>None</td>
         <td>
-          Confirmation message.<br />
-          Example: <code>{ "message": "Movie 123 removed from johndoe's favorites." }</code>
+          Plain text:
+          <code>"Movie &lt;movieId&gt; removed from &lt;username&gt;'s favorites"</code>
         </td>
       </tr>
 
@@ -198,11 +209,11 @@
         <td>DELETE</td>
         <td><code>/users/:username</code></td>
         <td>Deregisters an existing user.</td>
-        <td>URL param: <code>username</code> (string)</td>
+        <td>URL param: <code>username</code></td>
         <td>None</td>
         <td>
-          Confirmation message.<br />
-          Example: <code>{ "message": "User johndoe deregistered successfully." }</code>
+          Plain text:
+          <code>"User &lt;username&gt; deregistered"</code>
         </td>
       </tr>
     </tbody>
