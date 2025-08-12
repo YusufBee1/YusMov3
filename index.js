@@ -35,7 +35,7 @@ app.options("*", cors());
 app.use(passport.initialize());
 app.use(express.static("public"));
 
-// ⬇️ load /login from auth.js (single source of truth)
+// ⬇️ load /login from auth.js
 const authRoutes = require("./auth");
 authRoutes(app);
 
@@ -84,20 +84,14 @@ app.get("/", (req, res) => {
   res.send("Welcome to YusMov API! Visit /movies or /documentation.html to get started.");
 });
 
-// User registration (public) — pre-save hook will hash password
 app.post("/users", registerValidation, handleValidationErrors, async (req, res, next) => {
   try {
     const { username, email, password, birthday } = req.body;
-
-    // Ensure required fields (defensive, though validator should catch)
     if (!username || !email || !password) {
       return res.status(400).send("Username, email, and password are required");
     }
-
     const user = new User({ username, email, password, birthday });
-    await user.save(); // triggers pre-save hashing
-
-    // Return safe user (omit password)
+    await user.save();
     const safe = {
       _id: user._id,
       username: user.username,
@@ -165,7 +159,6 @@ app.get("/directors/:name", auth, async (req, res, next) => {
   }
 });
 
-// Update a user's info (hash when changing password)
 app.put("/users/:username", auth, updateValidation, handleValidationErrors, async (req, res, next) => {
   try {
     const updates = {};
@@ -173,25 +166,18 @@ app.put("/users/:username", auth, updateValidation, handleValidationErrors, asyn
       const key = `new${f.charAt(0).toUpperCase() + f.slice(1)}`;
       if (req.body[key]) updates[f] = req.body[key];
     });
-
-    // Special-case password so it gets hashed
     if (req.body.newPassword) {
       updates.password = await User.hashPassword(req.body.newPassword);
     }
-
     if (Object.keys(updates).length === 0) {
       return res.status(400).send("No valid update fields provided");
     }
-
     const updated = await User.findOneAndUpdate(
       { username: req.params.username },
       { $set: updates },
       { new: true }
     ).lean();
-
     if (!updated) return res.status(404).send("User not found");
-
-    // Never return password
     delete updated.password;
     res.json(updated);
   } catch (err) {
@@ -199,7 +185,6 @@ app.put("/users/:username", auth, updateValidation, handleValidationErrors, asyn
   }
 });
 
-// Add a movie to user's favorites (hardened)
 app.post("/users/:username/movies/:movieId", auth, async (req, res, next) => {
   try {
     const { username, movieId } = req.params;
@@ -208,10 +193,8 @@ app.post("/users/:username/movies/:movieId", auth, async (req, res, next) => {
     }
     const movie = await Movie.findById(movieId).lean();
     if (!movie) return res.status(404).send("Movie not found");
-
     const user = await User.findOne({ username });
     if (!user) return res.status(404).send("User not found");
-
     const already = user.favorites.some((id) => id.toString() === movieId);
     if (!already) {
       user.favorites.push(movieId);
@@ -223,7 +206,6 @@ app.post("/users/:username/movies/:movieId", auth, async (req, res, next) => {
   }
 });
 
-// Remove a movie from user's favorites (hardened)
 app.delete("/users/:username/movies/:movieId", auth, async (req, res, next) => {
   try {
     const { username, movieId } = req.params;
@@ -232,7 +214,6 @@ app.delete("/users/:username/movies/:movieId", auth, async (req, res, next) => {
     }
     const user = await User.findOne({ username });
     if (!user) return res.status(404).send("User not found");
-
     user.favorites = user.favorites.filter((id) => id.toString() !== movieId);
     await user.save();
     res.send(`Movie ${movieId} removed from ${username}'s favorites`);
@@ -262,6 +243,6 @@ app.use((err, req, res, next) => {
 // ========================
 // START SERVER
 // ========================
-app.listen(port, () => {
-  console.log(`✅ Server running at http://localhost:${port}`);
+app.listen(port, '0.0.0.0', () => {
+  console.log(`✅ Listening on Port ${port}`);
 });

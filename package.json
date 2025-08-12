@@ -1,10 +1,11 @@
 {
   "name": "movie_api---version2",
   "version": "1.0.0",
-  "description": " \"A movie API for tracking and managing film data\"",
+  "description": "\"A movie API for tracking and managing film data\"",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js"
   },
   "author": "Yusuf Blanton",
   "license": "ISC",
