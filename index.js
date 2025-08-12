@@ -3,8 +3,10 @@ const express = require("express");
 const morgan = require("morgan");
 const mongoose = require("mongoose");
 const jwt = require("jsonwebtoken");
-const passport = require("passport");          // ✅ use passport library
-require("./passport");                         // ✅ register strategies
+const passport = require("passport");
+const cors = require("cors");
+const { body, validationResult } = require("express-validator");
+require("./passport"); // register strategies
 const { Movie, User } = require("./models");
 
 const app = express();
@@ -28,48 +30,94 @@ mongoose
 // ========================
 app.use(express.json());
 app.use(morgan("dev"));
-app.use(passport.initialize());               // initialize passport
-app.use(express.static("public"));            // serve docs and index.html
+app.use(cors());
+app.options("*", cors());
+app.use(passport.initialize());
+app.use(express.static("public"));
 
 // ⬇️ load /login from auth.js (single source of truth)
 const authRoutes = require("./auth");
 authRoutes(app);
 
 // ========================
+// VALIDATION HELPERS
+// ========================
+function handleValidationErrors(req, res, next) {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(422).json({ errors: errors.array() });
+  next();
+}
+
+const registerValidation = [
+  body("username").trim().isLength({ min: 3 }).withMessage("Username must be at least 3 characters"),
+  body("email").isEmail().withMessage("Email must be valid").normalizeEmail(),
+  body("password")
+    .isLength({ min: 8 }).withMessage("Password must be at least 8 characters")
+    .matches(/[A-Z]/).withMessage("Password must include an uppercase letter")
+    .matches(/[a-z]/).withMessage("Password must include a lowercase letter")
+    .matches(/[0-9]/).withMessage("Password must include a number"),
+  body("birthday")
+    .optional({ values: "falsy" })
+    .isISO8601().withMessage("Birthday must be an ISO date (YYYY-MM-DD)")
+    .toDate(),
+];
+
+const updateValidation = [
+  body("newUsername").optional().trim().isLength({ min: 3 }).withMessage("newUsername must be at least 3 characters"),
+  body("newEmail").optional().isEmail().withMessage("newEmail must be a valid email").normalizeEmail(),
+  body("newPassword")
+    .optional()
+    .isLength({ min: 8 }).withMessage("newPassword must be at least 8 characters")
+    .matches(/[A-Z]/).withMessage("newPassword must include an uppercase letter")
+    .matches(/[a-z]/).withMessage("newPassword must include a lowercase letter")
+    .matches(/[0-9]/).withMessage("newPassword must include a number"),
+  body("newBirthday")
+    .optional({ values: "falsy" })
+    .isISO8601().withMessage("newBirthday must be an ISO date (YYYY-MM-DD)")
+    .toDate(),
+];
+
+// ========================
 // PUBLIC ROUTES
 // ========================
-
-// Root welcome message
 app.get("/", (req, res) => {
-  res.send(
-    "Welcome to YusMov API! Visit /movies or /documentation.html to get started."
-  );
+  res.send("Welcome to YusMov API! Visit /movies or /documentation.html to get started.");
 });
 
-// User registration (public)
-app.post("/users", async (req, res, next) => {
+// User registration (public) — pre-save hook will hash password
+app.post("/users", registerValidation, handleValidationErrors, async (req, res, next) => {
   try {
     const { username, email, password, birthday } = req.body;
+
+    // Ensure required fields (defensive, though validator should catch)
     if (!username || !email || !password) {
-      return res
-        .status(400)
-        .send("Username, email, and password are required");
+      return res.status(400).send("Username, email, and password are required");
     }
-    const user = await User.create({ username, email, password, birthday });
-    res.status(201).json(user);
+
+    const user = new User({ username, email, password, birthday });
+    await user.save(); // triggers pre-save hashing
+
+    // Return safe user (omit password)
+    const safe = {
+      _id: user._id,
+      username: user.username,
+      email: user.email,
+      birthday: user.birthday,
+      favorites: user.favorites,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+    res.status(201).json(safe);
   } catch (err) {
     next(err);
   }
 });
-
-// (Removed duplicate inline /login — handled by auth.js)
 
 // ========================
 // PROTECTED ROUTES
 // ========================
 const auth = passport.authenticate("jwt", { session: false });
 
-// 1. Get all movies
 app.get("/movies", auth, async (req, res, next) => {
   try {
     const movies = await Movie.find().lean();
@@ -79,7 +127,6 @@ app.get("/movies", auth, async (req, res, next) => {
   }
 });
 
-// 2. Get a single movie by title
 app.get("/movies/:title", auth, async (req, res, next) => {
   try {
     const movie = await Movie.findOne({
@@ -92,7 +139,6 @@ app.get("/movies/:title", auth, async (req, res, next) => {
   }
 });
 
-// 3. Get genre by name
 app.get("/genres/:name", auth, async (req, res, next) => {
   try {
     const found = await Movie.findOne(
@@ -106,7 +152,6 @@ app.get("/genres/:name", auth, async (req, res, next) => {
   }
 });
 
-// 4. Get director by name
 app.get("/directors/:name", auth, async (req, res, next) => {
   try {
     const found = await Movie.findOne(
@@ -120,38 +165,47 @@ app.get("/directors/:name", auth, async (req, res, next) => {
   }
 });
 
-// 5. Update a user's info
-app.put("/users/:username", auth, async (req, res, next) => {
+// Update a user's info (hash when changing password)
+app.put("/users/:username", auth, updateValidation, handleValidationErrors, async (req, res, next) => {
   try {
     const updates = {};
-    ["username", "email", "password", "birthday"].forEach((f) => {
+    ["username", "email", "birthday"].forEach((f) => {
       const key = `new${f.charAt(0).toUpperCase() + f.slice(1)}`;
       if (req.body[key]) updates[f] = req.body[key];
     });
+
+    // Special-case password so it gets hashed
+    if (req.body.newPassword) {
+      updates.password = await User.hashPassword(req.body.newPassword);
+    }
+
     if (Object.keys(updates).length === 0) {
       return res.status(400).send("No valid update fields provided");
     }
+
     const updated = await User.findOneAndUpdate(
       { username: req.params.username },
       { $set: updates },
       { new: true }
     ).lean();
+
     if (!updated) return res.status(404).send("User not found");
+
+    // Never return password
+    delete updated.password;
     res.json(updated);
   } catch (err) {
     next(err);
   }
 });
 
-// 6. Add a movie to user's favorites (🔒 hardened)
+// Add a movie to user's favorites (hardened)
 app.post("/users/:username/movies/:movieId", auth, async (req, res, next) => {
   try {
     const { username, movieId } = req.params;
-    // Validate movieId format
     if (!mongoose.Types.ObjectId.isValid(movieId)) {
       return res.status(400).send("Invalid movieId");
     }
-    // Ensure movie exists
     const movie = await Movie.findById(movieId).lean();
     if (!movie) return res.status(404).send("Movie not found");
 
@@ -169,11 +223,10 @@ app.post("/users/:username/movies/:movieId", auth, async (req, res, next) => {
   }
 });
 
-// 7. Remove a movie from user's favorites (🔒 hardened)
+// Remove a movie from user's favorites (hardened)
 app.delete("/users/:username/movies/:movieId", auth, async (req, res, next) => {
   try {
     const { username, movieId } = req.params;
-
     if (!mongoose.Types.ObjectId.isValid(movieId)) {
       return res.status(400).send("Invalid movieId");
     }
@@ -188,7 +241,6 @@ app.delete("/users/:username/movies/:movieId", auth, async (req, res, next) => {
   }
 });
 
-// 8. Deregister an existing user
 app.delete("/users/:username", auth, async (req, res, next) => {
   try {
     const result = await User.deleteOne({ username: req.params.username });

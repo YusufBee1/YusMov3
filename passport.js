@@ -4,14 +4,11 @@ const LocalStrategy = require("passport-local").Strategy;
 const { Strategy: JWTStrategy, ExtractJwt } = require("passport-jwt");
 const { User } = require("./models");
 
-// Use the same secret as index.js/auth.js
 const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret_here";
 
 /**
- * LOCAL STRATEGY
- * Authenticates with username + password sent in the request body (or from basicAuthToBody in auth.js).
- * NOTE: This compares plaintext passwords because that’s how your seed data is stored right now.
- * When you add hashing, replace the comparison with bcrypt.compare.
+ * LOCAL STRATEGY (username + password).
+ * Uses user.validatePassword (bcrypt compare) from models.js.
  */
 passport.use(
   new LocalStrategy(
@@ -26,8 +23,8 @@ passport.use(
         if (!user) {
           return done(null, false, { message: "User not found" });
         }
-        // Plaintext compare (replace with bcrypt.compare when you add hashing)
-        if (user.password !== password) {
+        const ok = await user.validatePassword(password);
+        if (!ok) {
           return done(null, false, { message: "Incorrect password" });
         }
         return done(null, user);
@@ -39,9 +36,7 @@ passport.use(
 );
 
 /**
- * JWT STRATEGY
- * Validates a Bearer token (Authorization: Bearer <token>).
- * Expects token payload with { sub: <userId>, username: <string> } as issued in auth.js.
+ * JWT STRATEGY (Bearer token in Authorization header)
  */
 passport.use(
   new JWTStrategy(
@@ -53,11 +48,8 @@ passport.use(
     },
     async (payload, done) => {
       try {
-        // payload.sub is the user _id (string) we signed in auth.js
         const user = await User.findById(payload.sub).exec();
-        if (!user) {
-          return done(null, false, { message: "User not found" });
-        }
+        if (!user) return done(null, false, { message: "User not found" });
         return done(null, user);
       } catch (err) {
         return done(err, false);
@@ -66,7 +58,7 @@ passport.use(
   )
 );
 
-// We are not using sessions, but Passport requires these if sessions were enabled.
+// (Sessions not used, but harmless to define)
 passport.serializeUser((user, done) => done(null, user._id));
 passport.deserializeUser(async (id, done) => {
   try {
