@@ -20,7 +20,7 @@ const passport = require('passport');
 const cors = require('cors');
 const { body, validationResult } = require('express-validator');
 
-require('./passport');           // Register Passport strategies
+require('./passport'); // Register Passport strategies
 const { Movie, User } = require('./models');
 
 // App init
@@ -30,7 +30,7 @@ const app = express();
 // MONGOOSE CONNECTION
 // ========================
 mongoose
-  .connect(MONGO_URI) // modern mongoose doesn't need useNewUrlParser/useUnifiedTopology
+  .connect(MONGO_URI)
   .then(() => console.log('✅ Connected to MongoDB'))
   .catch((err) => {
     console.error('❌ MongoDB connection error:', err.message);
@@ -47,7 +47,7 @@ app.options('*', cors());
 app.use(passport.initialize());
 app.use(express.static('public'));
 
-// ⬇️ load /login from auth.js (single source of truth)
+// Load /login from auth.js
 const authRoutes = require('./auth');
 authRoutes(app);
 
@@ -96,7 +96,7 @@ app.get('/', (req, res) => {
   res.send('Welcome to YusMov API! Visit /movies or /documentation.html to get started.');
 });
 
-// User registration (public) — pre-save hook will hash password
+// User registration (public)
 app.post('/users', registerValidation, handleValidationErrors, async (req, res, next) => {
   try {
     const { username, email, password, birthday } = req.body;
@@ -104,7 +104,7 @@ app.post('/users', registerValidation, handleValidationErrors, async (req, res, 
       return res.status(400).send('Username, email, and password are required');
     }
     const user = new User({ username, email, password, birthday });
-    await user.save(); // triggers pre-save hashing
+    await user.save();
     const safe = {
       _id: user._id,
       username: user.username,
@@ -121,11 +121,9 @@ app.post('/users', registerValidation, handleValidationErrors, async (req, res, 
 });
 
 // ========================
-// PROTECTED ROUTES
+// MOVIES — NOW PUBLIC (CHANGED!)
 // ========================
-const auth = passport.authenticate('jwt', { session: false });
-
-app.get('/movies', auth, async (req, res, next) => {
+app.get('/movies', async (req, res, next) => {
   try {
     const movies = await Movie.find().lean();
     res.json(movies);
@@ -133,6 +131,11 @@ app.get('/movies', auth, async (req, res, next) => {
     next(err);
   }
 });
+
+// ========================
+// PROTECTED ROUTES
+// ========================
+const auth = passport.authenticate('jwt', { session: false });
 
 app.get('/movies/:title', auth, async (req, res, next) => {
   try {
@@ -172,7 +175,7 @@ app.get('/directors/:name', auth, async (req, res, next) => {
   }
 });
 
-// Update a user's info (hash when changing password)
+// Update a user's info
 app.put('/users/:username', auth, updateValidation, handleValidationErrors, async (req, res, next) => {
   try {
     const updates = {};
@@ -181,7 +184,6 @@ app.put('/users/:username', auth, updateValidation, handleValidationErrors, asyn
       if (req.body[key]) updates[f] = req.body[key];
     });
 
-    // Special-case password so it gets hashed
     if (req.body.newPassword) {
       updates.password = await User.hashPassword(req.body.newPassword);
     }
@@ -198,7 +200,6 @@ app.put('/users/:username', auth, updateValidation, handleValidationErrors, asyn
 
     if (!updated) return res.status(404).send('User not found');
 
-    // Never return password
     delete updated.password;
     res.json(updated);
   } catch (err) {
@@ -206,7 +207,7 @@ app.put('/users/:username', auth, updateValidation, handleValidationErrors, asyn
   }
 });
 
-// Add a movie to user's favorites (hardened)
+// Add a movie to user's favorites
 app.post('/users/:username/movies/:movieId', auth, async (req, res, next) => {
   try {
     const { username, movieId } = req.params;
@@ -230,7 +231,7 @@ app.post('/users/:username/movies/:movieId', auth, async (req, res, next) => {
   }
 });
 
-// Remove a movie from user's favorites (hardened)
+// Remove a movie from user's favorites
 app.delete('/users/:username/movies/:movieId', auth, async (req, res, next) => {
   try {
     const { username, movieId } = req.params;
