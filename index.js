@@ -23,7 +23,6 @@ const { body, validationResult } = require('express-validator');
 require('./passport'); // Register Passport strategies
 const { Movie, User } = require('./models');
 
-// App init
 const app = express();
 
 // ========================
@@ -90,13 +89,18 @@ const updateValidation = [
 ];
 
 // ========================
+// ROUTE GUARD
+// ========================
+const auth = passport.authenticate('jwt', { session: false });
+
+// ========================
 // PUBLIC ROUTES
 // ========================
 app.get('/', (req, res) => {
-  res.send('Welcome to YusMov API! Visit /movies or /documentation.html to get started.');
+  res.send('Welcome to YusMov API! Visit /documentation.html to get started.');
 });
 
-// User registration (public)
+// User registration
 app.post('/users', registerValidation, handleValidationErrors, async (req, res, next) => {
   try {
     const { username, email, password, birthday } = req.body;
@@ -121,21 +125,18 @@ app.post('/users', registerValidation, handleValidationErrors, async (req, res, 
 });
 
 // ========================
-// MOVIES — NOW PUBLIC (CHANGED!)
+// PROTECTED ROUTES
 // ========================
-app.get('/movies', async (req, res, next) => {
+
+// /movies — now re-protected with JWT
+app.get('/movies', auth, async (req, res, next) => {
   try {
     const movies = await Movie.find().lean();
-    res.json(movies);
+    res.status(200).json(movies);
   } catch (err) {
     next(err);
   }
 });
-
-// ========================
-// PROTECTED ROUTES
-// ========================
-const auth = passport.authenticate('jwt', { session: false });
 
 app.get('/movies/:title', auth, async (req, res, next) => {
   try {
@@ -249,6 +250,7 @@ app.delete('/users/:username/movies/:movieId', auth, async (req, res, next) => {
   }
 });
 
+// Delete user
 app.delete('/users/:username', auth, async (req, res, next) => {
   try {
     const result = await User.deleteOne({ username: req.params.username });
