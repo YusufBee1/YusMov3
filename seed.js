@@ -1,12 +1,12 @@
 // seed.js
+require("dotenv").config();
 const mongoose = require("mongoose");
 const { Movie } = require("./models");
 
-// connect to MongoDB (change if your URI is different)
-const MONGO_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/yusmov";
+// Use Atlas connection string from .env or Heroku
+const MONGO_URI = process.env.MONGODB_URI;
 
-mongoose
-  .connect(MONGO_URI)
+mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log("✅ Connected to MongoDB"))
   .catch((err) => {
     console.error("❌ MongoDB connection error:", err.message);
