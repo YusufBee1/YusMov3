@@ -5,7 +5,8 @@
 // ========================
 require('dotenv').config(); // Load .env when running locally
 
-const MONGO_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/yusmov';
+// ✅ Match your .env key (CONNECTION_URI)
+const MONGO_URI = process.env.CONNECTION_URI || 'mongodb://localhost:27017/yusmov';
 const PORT = process.env.PORT || 8080;
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_here';
 
