@@ -97,11 +97,27 @@ const auth = passport.authenticate('jwt', { session: false });
 // ========================
 // PUBLIC ROUTES
 // ========================
+
+/**
+ * @description Welcome endpoint
+ * @method GET
+ * @param {string} endpoint - /
+ * @returns {string} Welcome message
+ */
 app.get('/', (req, res) => {
   res.send('Welcome to YusMov API! Visit /documentation.html to get started.');
 });
 
-// User registration
+/**
+ * @description Register a new user
+ * @method POST
+ * @param {string} endpoint - /users
+ * @param {string} username - Required, min 3 chars
+ * @param {string} password - Required, min 8 chars
+ * @param {string} email - Required, valid email
+ * @param {Date} birthday - Optional, ISO date
+ * @returns {Object} The created user object
+ */
 app.post('/users', registerValidation, handleValidationErrors, async (req, res, next) => {
   try {
     const { username, email, password, birthday } = req.body;
@@ -129,7 +145,13 @@ app.post('/users', registerValidation, handleValidationErrors, async (req, res, 
 // PROTECTED ROUTES
 // ========================
 
-// /movies — now re-protected with JWT
+/**
+ * @description Get all movies
+ * @method GET
+ * @param {string} endpoint - /movies
+ * @returns {Object[]} Array of all movie objects
+ * @requires authentication JWT
+ */
 app.get('/movies', auth, async (req, res, next) => {
   try {
     const movies = await Movie.find().lean();
@@ -139,6 +161,14 @@ app.get('/movies', auth, async (req, res, next) => {
   }
 });
 
+/**
+ * @description Get a movie by title
+ * @method GET
+ * @param {string} endpoint - /movies/:title
+ * @param {string} title - The title of the movie
+ * @returns {Object} A single movie object
+ * @requires authentication JWT
+ */
 app.get('/movies/:title', auth, async (req, res, next) => {
   try {
     const movie = await Movie.findOne({
@@ -151,6 +181,14 @@ app.get('/movies/:title', auth, async (req, res, next) => {
   }
 });
 
+/**
+ * @description Return data about a genre
+ * @method GET
+ * @param {string} endpoint - /genres/:name
+ * @param {string} name - The name of the genre
+ * @returns {Object} Genre object with name and description
+ * @requires authentication JWT
+ */
 app.get('/genres/:name', auth, async (req, res, next) => {
   try {
     const found = await Movie.findOne(
@@ -164,6 +202,14 @@ app.get('/genres/:name', auth, async (req, res, next) => {
   }
 });
 
+/**
+ * @description Return data about a director
+ * @method GET
+ * @param {string} endpoint - /directors/:name
+ * @param {string} name - The name of the director
+ * @returns {Object} Director object with name, bio, birth, death
+ * @requires authentication JWT
+ */
 app.get('/directors/:name', auth, async (req, res, next) => {
   try {
     const found = await Movie.findOne(
@@ -177,7 +223,18 @@ app.get('/directors/:name', auth, async (req, res, next) => {
   }
 });
 
-// Update a user's info
+/**
+ * @description Update a user's info
+ * @method PUT
+ * @param {string} endpoint - /users/:username
+ * @param {string} username - Required path parameter
+ * @param {string} newUsername - Optional
+ * @param {string} newPassword - Optional
+ * @param {string} newEmail - Optional
+ * @param {Date} newBirthday - Optional
+ * @returns {Object} Updated user object
+ * @requires authentication JWT
+ */
 app.put('/users/:username', auth, updateValidation, handleValidationErrors, async (req, res, next) => {
   try {
     const updates = {};
@@ -209,7 +266,15 @@ app.put('/users/:username', auth, updateValidation, handleValidationErrors, asyn
   }
 });
 
-// Add a movie to user's favorites
+/**
+ * @description Add a movie to user's favorites
+ * @method POST
+ * @param {string} endpoint - /users/:username/movies/:movieId
+ * @param {string} username - User's username
+ * @param {string} movieId - ID of the movie to add
+ * @returns {string} Success message
+ * @requires authentication JWT
+ */
 app.post('/users/:username/movies/:movieId', auth, async (req, res, next) => {
   try {
     const { username, movieId } = req.params;
@@ -233,7 +298,15 @@ app.post('/users/:username/movies/:movieId', auth, async (req, res, next) => {
   }
 });
 
-// Remove a movie from user's favorites
+/**
+ * @description Remove a movie from user's favorites
+ * @method DELETE
+ * @param {string} endpoint - /users/:username/movies/:movieId
+ * @param {string} username - User's username
+ * @param {string} movieId - ID of the movie to remove
+ * @returns {string} Success message
+ * @requires authentication JWT
+ */
 app.delete('/users/:username/movies/:movieId', auth, async (req, res, next) => {
   try {
     const { username, movieId } = req.params;
@@ -251,7 +324,14 @@ app.delete('/users/:username/movies/:movieId', auth, async (req, res, next) => {
   }
 });
 
-// Delete user
+/**
+ * @description Delete a user
+ * @method DELETE
+ * @param {string} endpoint - /users/:username
+ * @param {string} username - Username of the user to delete
+ * @returns {string} Success message
+ * @requires authentication JWT
+ */
 app.delete('/users/:username', auth, async (req, res, next) => {
   try {
     const result = await User.deleteOne({ username: req.params.username });
